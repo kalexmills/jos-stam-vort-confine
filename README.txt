@@ -1,4 +1,6 @@
-Population dynamics using real-time fluid dynamics. 'cause that's totally gonna work.
+Population dynamics using real-time fluid dynamics.
+
+Note: Failed experiment. Did not make the kind of progress which was expected.
 
 Added / Planned methods:
 
