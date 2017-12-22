@@ -25,7 +25,11 @@
 /* external definitions (from solver.c) */
 
 extern void dens_step ( int N, float * x, float * x0, float * u, float * v, float diff, float dt );
+#ifdef _VORTICIAL_CONFINEMENT_
+extern void vel_step ( int N, float * u, float * v, float * u0, float * v0, float * curl, float visc, float dt );
+#else
 extern void vel_step ( int N, float * u, float * v, float * u0, float * v0, float visc, float dt );
+#endif
 
 /* global variables */
 
@@ -33,6 +37,10 @@ static int N;
 static float dt, diff, visc;
 static float force, source;
 static int dvel;
+
+#ifdef _VORTICIAL_CONFINEMENT_
+static float * curl;
+#endif
 
 static float * u, * v, * u_prev, * v_prev;
 static float * dens, * dens_prev;
@@ -79,6 +87,9 @@ static int allocate_data ( void )
 	v_prev		= (float *) malloc ( size*sizeof(float) );
 	dens		= (float *) malloc ( size*sizeof(float) );	
 	dens_prev	= (float *) malloc ( size*sizeof(float) );
+#ifdef _VORTICIAL_CONFINEMENT_
+	curl		= (float *) malloc ( size*sizeof(float) );
+#endif
 
 	if ( !u || !v || !u_prev || !v_prev || !dens || !dens_prev ) {
 		fprintf ( stderr, "cannot allocate data\n" );
@@ -254,7 +265,11 @@ static void reshape_func ( int width, int height )
 static void idle_func ( void )
 {
 	get_from_UI ( dens_prev, u_prev, v_prev );
+#ifdef _VORTICIAL_CONFINEMENT_
+	vel_step ( N, u, v, u_prev, v_prev, curl, visc, dt );
+#else
 	vel_step ( N, u, v, u_prev, v_prev, visc, dt );
+#endif
 	dens_step ( N, dens, dens_prev, u, v, diff, dt );
 
 	glutSetWindow ( win_id );

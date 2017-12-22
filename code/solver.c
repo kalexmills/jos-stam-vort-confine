@@ -86,9 +86,63 @@ void dens_step ( int N, float * x, float * x0, float * u, float * v, float diff,
 	SWAP ( x0, x ); advect ( N, 0, x, x0, u, v, dt );
 }
 
+#ifdef _VORTICIAL_CONFINEMENT_
+#include <math.h>
+
+#define EPSILON 0.00000001f;
+#define FOR_EACH_CELL_EXCEPT_PERIMETER for ( i=2 ; i<N ; i++ ) { for ( j=2 ; j<N ; j++ ) {
+
+float curlf(int N, int i, int j, float* u, float* v)
+{
+	float du_dy = (u[IX(i,  j+1)] - u[IX(i,   j-1)]) * 0.5f;
+	float dv_dx = (v[IX(i+1,j  )] - v[IX(i-1, j  )]) * 0.5f;
+	return du_dy - dv_dx;
+}
+
+void vort_confine(int N, float* curl, float * u, float * v, float * u0, float * v0)
+{
+	int i, j;
+
+        float dw_dx, dw_dy;
+	float length;
+	float vel;
+	
+	FOR_EACH_CELL
+ 		curl[IX(i,j)] = fabs( curlf( N, i, j, u0, v0 ) );
+        END_FOR
+
+	FOR_EACH_CELL_EXCEPT_PERIMETER
+		dw_dx = (curl[IX(i+1,j  )] - curl[IX(i-1, j  )]) * 0.5f;
+		dw_dy = (curl[IX(i  ,j+1)] - curl[IX(i,   j-1)]) * 0.5f;
+
+		length = sqrt(dw_dx * dw_dx + dw_dy * dw_dy) + EPSILON;
+
+		dw_dx /= length;
+		dw_dy /= length;
+	
+		vel = curlf( N, i, j, u0, v0 );
+		
+		u[IX(i,j)] = dw_dy * -vel;
+		v[IX(i,j)] = dw_dx * vel; 
+	END_FOR
+}
+
+#endif
+
+#ifdef _VORTICIAL_CONFINEMENT_
+void vel_step ( int N, float * u, float * v, float * u0, float * v0, float * curl, float visc, float dt )
+#else
 void vel_step ( int N, float * u, float * v, float * u0, float * v0, float visc, float dt )
+#endif
 {
 	add_source ( N, u, u0, dt ); add_source ( N, v, v0, dt );
+
+#ifdef _VORTICIAL_CONFINEMENT_
+	vort_confine ( N, curl, u0, v0, u, v );
+	add_source ( N, u, u0, dt );
+	add_source ( N, v, v0, dt );
+#endif
+
 	SWAP ( u0, u ); diffuse ( N, 1, u, u0, visc, dt );
 	SWAP ( v0, v ); diffuse ( N, 2, v, v0, visc, dt );
 	project ( N, u, v, u0, v0 );
@@ -96,4 +150,3 @@ void vel_step ( int N, float * u, float * v, float * u0, float * v0, float visc,
 	advect ( N, 1, u, u0, u0, v0, dt ); advect ( N, 2, v, v0, u0, v0, dt );
 	project ( N, u, v, u0, v0 );
 }
-
