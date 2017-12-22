@@ -3,6 +3,8 @@
 #define FOR_EACH_CELL for ( i=1 ; i<=N ; i++ ) { for ( j=1 ; j<=N ; j++ ) {
 #define END_FOR }}
 
+#include <math.h>
+
 void add_source ( int N, float * x, float * s, float dt )
 {
 	int i, size=(N+2)*(N+2);
@@ -86,9 +88,17 @@ void dens_step ( int N, float * x, float * x0, float * u, float * v, float diff,
 	SWAP ( x0, x ); advect ( N, 0, x, x0, u, v, dt );
 }
 
-#ifdef _VORTICIAL_CONFINEMENT_
-#include <math.h>
+void clamp_vel_step (int N, float * u, float * v, float max_vel) {
+	int i, j;
+	
+	FOR_EACH_CELL
+		u[IX(i, j)] = fmax(-max_vel, fmin(max_vel, u[IX(i,j)]));
+		v[IX(i, j)] = fmax(-max_vel, fmin(max_vel, v[IX(i,j)]));
+	END_FOR
 
+}
+
+#ifdef _VORTICIAL_CONFINEMENT_
 #define EPSILON 0.00000001f;
 #define FOR_EACH_CELL_EXCEPT_PERIMETER for ( i=2 ; i<N ; i++ ) { for ( j=2 ; j<N ; j++ ) {
 
@@ -127,9 +137,6 @@ void vort_confine(int N, float* curl, float * u, float * v, float * u0, float * 
 	END_FOR
 }
 
-#endif
-
-#ifdef _VORTICIAL_CONFINEMENT_
 void vel_step ( int N, float * u, float * v, float * u0, float * v0, float * curl, float visc, float dt )
 #else
 void vel_step ( int N, float * u, float * v, float * u0, float * v0, float visc, float dt )
@@ -149,4 +156,21 @@ void vel_step ( int N, float * u, float * v, float * u0, float * v0, float visc,
 	SWAP ( u0, u ); SWAP ( v0, v );
 	advect ( N, 1, u, u0, u0, v0, dt ); advect ( N, 2, v, v0, u0, v0, dt );
 	project ( N, u, v, u0, v0 );
+	clamp_vel_step(N, u, v, 0.001f);
+	clamp_vel_step(N, u0, v0, 0.001f);
+}
+
+void fear_step ( int N, float * x, float * u, float * u0, float * v, float * v0,
+                 float * y, float fear, float dt )
+{
+	int i, j;
+	float fearu, fearv;
+	
+	FOR_EACH_CELL
+		fearu = fmax(0.0f, (y[IX(i - 1,j    )] - x[IX(i,j)])) - fmax(0.0f, (y[IX(i + 1,j    )] - x[IX(i,j)]));
+		fearv = fmax(0.0f, (y[IX(i,    j + 1)] - x[IX(i,j)])) - fmax(0.0f, (y[IX(i,    j - 1)] - x[IX(i,j)]));
+
+		u[IX(i, j)] = fear * fearu + u0[IX(i,j)];
+		v[IX(i, j)] = fear * fearv + v0[IX(i,j)];
+	END_FOR
 }
